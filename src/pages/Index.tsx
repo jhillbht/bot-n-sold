@@ -23,23 +23,34 @@ const Index = () => {
           <p className="text-lg text-gray-600">Are you looking to buy or sell a business?</p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-12">
-          <RoleCard
-            title="Buyer"
-            description="Find the perfect business opportunity"
-            selected={selectedRole === "buyer"}
-            onClick={() => handleRoleSelect("buyer")}
-          />
-          <RoleCard
-            title="Seller"
-            description="Connect with qualified buyers"
-            selected={selectedRole === "seller"}
-            onClick={() => handleRoleSelect("seller")}
-          />
+        <div className="flex flex-col items-center gap-6">
+          <div className="grid md:grid-cols-2 gap-6 max-w-4xl w-full">
+            <RoleCard
+              title="Buyer"
+              description="Find the perfect business opportunity"
+              selected={selectedRole === "buyer"}
+              onClick={() => handleRoleSelect("buyer")}
+            />
+            <RoleCard
+              title="Seller"
+              description="Connect with qualified buyers"
+              selected={selectedRole === "seller"}
+              onClick={() => handleRoleSelect("seller")}
+            />
+          </div>
+          
+          <div className="max-w-md w-full">
+            <RoleCard
+              title="Broker"
+              description="Facilitate business transactions"
+              selected={selectedRole === "broker"}
+              onClick={() => handleRoleSelect("broker")}
+            />
+          </div>
         </div>
 
         {selectedRole && (
-          <div className="flex flex-col items-center gap-6 animate-fadeIn">
+          <div className="flex flex-col items-center gap-6 mt-12 animate-fadeIn">
             <h2 className="text-2xl font-semibold">Continue with</h2>
             <SocialLogin />
           </div>
