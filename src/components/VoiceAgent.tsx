@@ -93,34 +93,55 @@ export const VoiceAgent = () => {
       <div className="flex flex-col items-center justify-center h-[calc(100vh-8rem)]">
         {isRecording ? (
           <div className="relative">
+            {/* Outer glow effect */}
             <div 
-              className="absolute inset-0 bg-blue-500/20 rounded-full animate-pulse"
+              className="absolute inset-0 rounded-full blur-xl bg-blue-400/20"
               style={{
-                transform: `scale(${orbScale})`,
+                transform: `scale(${orbScale + 0.3})`,
                 transition: 'transform 0.1s ease-out'
               }}
             />
-            <div 
-              className="relative w-32 h-32 rounded-full bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center"
-              style={{
-                transform: `scale(${orbScale})`,
-                transition: 'transform 0.1s ease-out'
-              }}
-            >
-              <div className="w-28 h-28 rounded-full bg-gradient-to-br from-blue-500 to-purple-700 flex items-center justify-center">
-                <div className="absolute inset-0 rounded-full border-2 border-white/30 animate-[spin_3s_linear_infinite]" />
-                <div className="absolute inset-2 rounded-full border border-white/20 animate-[spin_2s_linear_infinite]" />
-                <Mic className="h-12 w-12 text-white" />
+            
+            {/* Floating animation container */}
+            <div className="animate-[float_6s_ease-in-out_infinite]">
+              {/* Main orb container */}
+              <div 
+                className="relative w-32 h-32"
+                style={{
+                  transform: `scale(${orbScale})`,
+                  transition: 'transform 0.1s ease-out'
+                }}
+              >
+                {/* Glass effect background */}
+                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-400/30 to-purple-600/30 backdrop-blur-sm" />
+                
+                {/* Inner gradient layers */}
+                <div className="absolute inset-2 rounded-full bg-gradient-to-br from-blue-500/40 to-purple-700/40" />
+                <div className="absolute inset-4 rounded-full bg-gradient-to-br from-blue-400/50 to-purple-600/50" />
+                
+                {/* Core of the orb */}
+                <div className="absolute inset-6 rounded-full bg-gradient-to-br from-blue-300/60 to-purple-500/60 flex items-center justify-center">
+                  {/* Animated rings */}
+                  <div className="absolute inset-0 rounded-full border-2 border-white/20 animate-[spin_4s_linear_infinite]" />
+                  <div className="absolute inset-2 rounded-full border border-white/10 animate-[spin_3s_linear_infinite]" />
+                  
+                  {/* Microphone icon */}
+                  <Mic className="h-8 w-8 text-white/80" />
+                </div>
               </div>
             </div>
           </div>
         ) : (
           <div className="space-y-8">
-            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-400/20 to-purple-600/20 flex items-center justify-center cursor-pointer hover:scale-105 transition-transform" onClick={startCall}>
-              <div className="w-28 h-28 rounded-full bg-gradient-to-br from-blue-500/30 to-purple-700/30 flex items-center justify-center">
-                <Mic className="h-12 w-12 text-gray-400" />
+            {/* Non-recording state orb */}
+            <div className="relative w-32 h-32 cursor-pointer group" onClick={startCall}>
+              <div className="absolute inset-0 rounded-full blur-md bg-blue-400/10 group-hover:bg-blue-400/20 transition-colors" />
+              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-400/20 to-purple-600/20 group-hover:from-blue-400/30 group-hover:to-purple-600/30 transition-colors" />
+              <div className="absolute inset-4 rounded-full bg-gradient-to-br from-blue-500/30 to-purple-700/30 flex items-center justify-center">
+                <Mic className="h-8 w-8 text-white/60 group-hover:text-white/80 transition-colors" />
               </div>
             </div>
+            
             <Button
               onClick={startCall}
               disabled={isProcessing}
