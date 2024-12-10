@@ -6,9 +6,19 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Get environment variables
 const VAPI_API_KEY = Deno.env.get('VAPI_API_KEY')
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+// Validate required environment variables
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('Missing required environment variables SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY')
+}
+
+if (!VAPI_API_KEY) {
+  console.error('Missing required environment variable VAPI_API_KEY')
+}
 
 // Initialize Supabase client with service role key for admin access
 const supabaseAdmin = createClient(
@@ -24,6 +34,10 @@ serve(async (req) => {
 
   try {
     const { assistantId } = await req.json()
+    
+    if (!assistantId) {
+      throw new Error('assistantId is required')
+    }
     
     // Create a new call using Vapi API
     const response = await fetch('https://api.vapi.ai/call', {
@@ -56,7 +70,10 @@ serve(async (req) => {
       .select()
       .single()
 
-    if (dbError) throw dbError
+    if (dbError) {
+      console.error('Database error:', dbError)
+      throw dbError
+    }
 
     return new Response(
       JSON.stringify(callData),
