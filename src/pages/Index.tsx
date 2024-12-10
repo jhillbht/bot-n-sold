@@ -3,6 +3,7 @@ import { RoleCard } from "@/components/RoleCard";
 import { SocialLogin } from "@/components/SocialLogin";
 import { VoiceAgent } from "@/components/VoiceAgent";
 import { useToast } from "@/components/ui/use-toast";
+import { Button } from "@/components/ui/button";
 
 const Index = () => {
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
