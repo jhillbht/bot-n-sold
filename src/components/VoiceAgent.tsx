@@ -4,15 +4,30 @@ import { VoiceVisualizer } from "./VoiceVisualizer";
 import { VoiceHeader } from "./VoiceHeader";
 import { ValuationSlider } from "./ValuationSlider";
 import { AudioQueue, encodeAudioData } from "@/utils/audioUtils";
+import { supabase } from "@/integrations/supabase/client";
 
 export const VoiceAgent = () => {
   const [soundLevel, setSoundLevel] = useState(0);
   const [showValuationSlider, setShowValuationSlider] = useState(false);
+  const [surveyData, setSurveyData] = useState({
+    monthlyRevenue: 0,
+    monthlyExpenses: 0,
+    businessType: "",
+    email: "",
+  });
+  const [currentQuestion, setCurrentQuestion] = useState(0);
   const { toast } = useToast();
   const wsRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioQueueRef = useRef<AudioQueue | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
+
+  const questions = [
+    "What's your monthly revenue?",
+    "What's your monthly expenses?",
+    "What type of business do you have?",
+    "Where should I send an email of your valuation?",
+  ];
 
   useEffect(() => {
     const setupAudio = async () => {
@@ -45,25 +60,87 @@ export const VoiceAgent = () => {
         };
         updateSoundLevel();
 
-        // Setup WebSocket connection to Vapi
         wsRef.current = new WebSocket(`wss://urdvklczigznduyzmgrf.functions.supabase.co/realtime-chat`);
         
         wsRef.current.onopen = () => {
           console.log('WebSocket connected');
-          toast({
-            title: "Welcome to Bot & Sold",
-            description: "I'm your AI business advisor. How can I help you today? For example, I can assist with business valuations or guide you through selling your business.",
-          });
+          // Start the survey
+          wsRef.current?.send(JSON.stringify({
+            type: 'input_text',
+            text: "Let's start the business valuation survey. " + questions[0]
+          }));
         };
 
         wsRef.current.onmessage = async (event) => {
           const data = JSON.parse(event.data);
           console.log('Received message:', data);
 
-          // Check for business valuation related messages
-          if (data.type === 'response.text' && 
-              data.text.toLowerCase().includes('valuation')) {
-            setShowValuationSlider(true);
+          if (data.type === 'response.text') {
+            const text = data.text.toLowerCase();
+            
+            // Process responses based on current question
+            if (currentQuestion === 0 && text.includes('revenue')) {
+              const match = text.match(/\$?(\d+(?:,\d{3})*(?:\.\d{2})?)/);
+              if (match) {
+                const revenue = parseFloat(match[1].replace(/,/g, ''));
+                setSurveyData(prev => ({ ...prev, monthlyRevenue: revenue }));
+                setCurrentQuestion(1);
+                wsRef.current?.send(JSON.stringify({
+                  type: 'input_text',
+                  text: questions[1]
+                }));
+              }
+            } else if (currentQuestion === 1 && text.includes('expenses')) {
+              const match = text.match(/\$?(\d+(?:,\d{3})*(?:\.\d{2})?)/);
+              if (match) {
+                const expenses = parseFloat(match[1].replace(/,/g, ''));
+                setSurveyData(prev => ({ ...prev, monthlyExpenses: expenses }));
+                setCurrentQuestion(2);
+                wsRef.current?.send(JSON.stringify({
+                  type: 'input_text',
+                  text: questions[2]
+                }));
+              }
+            } else if (currentQuestion === 2) {
+              setSurveyData(prev => ({ ...prev, businessType: text }));
+              setCurrentQuestion(3);
+              wsRef.current?.send(JSON.stringify({
+                type: 'input_text',
+                text: questions[3]
+              }));
+            } else if (currentQuestion === 3 && text.includes('@')) {
+              const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+              if (emailMatch) {
+                const email = emailMatch[0];
+                setSurveyData(prev => ({ ...prev, email: email }));
+                
+                // Send valuation email
+                const response = await fetch('https://urdvklczigznduyzmgrf.functions.supabase.co/send-valuation-email', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ ...surveyData, email }),
+                });
+
+                if (response.ok) {
+                  wsRef.current?.send(JSON.stringify({
+                    type: 'input_text',
+                    text: `Great! I've sent your valuation report to ${email}. Is there anything else you'd like to know?`
+                  }));
+                  toast({
+                    title: "Valuation Report Sent",
+                    description: `Check your email at ${email} for your business valuation report.`,
+                  });
+                } else {
+                  toast({
+                    title: "Error",
+                    description: "Failed to send valuation report. Please try again.",
+                    variant: "destructive",
+                  });
+                }
+              }
+            }
           }
 
           if (data.type === 'response.audio.delta') {
@@ -76,7 +153,6 @@ export const VoiceAgent = () => {
           }
         };
 
-        // Setup audio recorder
         const recorder = new MediaRecorder(stream);
         recorderRef.current = recorder;
 
@@ -95,7 +171,7 @@ export const VoiceAgent = () => {
           }
         };
 
-        recorder.start(100); // Collect data every 100ms
+        recorder.start(100);
       } catch (error) {
         console.error('Error setting up audio:', error);
         toast({
@@ -113,27 +189,17 @@ export const VoiceAgent = () => {
       recorderRef.current?.stop();
       audioContextRef.current?.close();
     };
-  }, []);
-
-  const handleValuationChange = (value: number[]) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: 'input_text',
-        text: `My business revenue is ${value[0]} dollars per year.`
-      }));
-    }
-  };
+  }, [currentQuestion]);
 
   return (
     <div className="fixed inset-0 bg-gradient-to-b from-gray-900 to-gray-800 text-white p-4">
       <VoiceHeader />
       <div className="flex flex-col items-center justify-center h-[calc(100vh-8rem)]">
         <VoiceVisualizer soundLevel={soundLevel} />
+        <div className="mt-8 text-center">
+          <p className="text-lg opacity-75">{questions[currentQuestion]}</p>
+        </div>
       </div>
-      <ValuationSlider 
-        isVisible={showValuationSlider} 
-        onValueChange={handleValuationChange}
-      />
     </div>
   );
 };
