@@ -17,7 +17,7 @@ export const useVapiWebSocket = () => {
       console.log('WebSocket connected');
       toast({
         title: "Welcome to Bot & Sold",
-        description: "I'm your AI business advisor. How can I help you today? For example, I can assist with business valuations or guide you through selling your business.",
+        description: "Hello, This is Chris from Bot & Sold. How can I help you today?",
       });
     };
 
