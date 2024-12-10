@@ -1,14 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Mic, X, ArrowLeft, MoreVertical } from "lucide-react";
 import { Button } from "./ui/button";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "./ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
+import { useVoiceWebSocket } from "@/hooks/useVoiceWebSocket";
 
 export const VoiceAgent = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [soundLevel, setSoundLevel] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const { toast } = useToast();
+  const { connect, disconnect, sendAudio, isConnected } = useVoiceWebSocket();
 
   useEffect(() => {
     if (isRecording) {
@@ -20,12 +22,27 @@ export const VoiceAgent = () => {
       const initAudio = async () => {
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          
+          // Set up audio analysis
           audioContext = new AudioContext();
           analyser = audioContext.createAnalyser();
           const source = audioContext.createMediaStreamSource(stream);
           source.connect(analyser);
           analyser.fftSize = 32;
           dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+          // Set up MediaRecorder for sending audio
+          mediaRecorderRef.current = new MediaRecorder(stream, {
+            mimeType: 'audio/webm'
+          });
+
+          mediaRecorderRef.current.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+              sendAudio(event.data);
+            }
+          };
+
+          mediaRecorderRef.current.start(100); // Collect data every 100ms
 
           const updateSoundLevel = () => {
             analyser.getByteFrequencyData(dataArray);
@@ -38,14 +55,24 @@ export const VoiceAgent = () => {
         } catch (error) {
           console.error('Error accessing microphone:', error);
           setIsRecording(false);
+          toast({
+            title: "Microphone Error",
+            description: "Could not access your microphone. Please check permissions.",
+            variant: "destructive",
+          });
         }
       };
 
+      connect();
       initAudio();
 
       return () => {
         if (animationFrame) cancelAnimationFrame(animationFrame);
         if (audioContext) audioContext.close();
+        if (mediaRecorderRef.current) {
+          mediaRecorderRef.current.stop();
+        }
+        disconnect();
       };
     }
   }, [isRecording]);
@@ -53,12 +80,6 @@ export const VoiceAgent = () => {
   const startCall = async () => {
     try {
       setIsProcessing(true);
-      const { data, error } = await supabase.functions.invoke('start-call', {
-        body: { assistantId: 'real-estate-agent' }
-      });
-
-      if (error) throw error;
-      
       setIsRecording(true);
       toast({
         title: "Call started",
@@ -93,7 +114,6 @@ export const VoiceAgent = () => {
       <div className="flex flex-col items-center justify-center h-[calc(100vh-8rem)]">
         {isRecording ? (
           <div className="relative">
-            {/* Outer glow effect */}
             <div 
               className="absolute inset-0 rounded-full blur-xl bg-blue-400/20"
               style={{
@@ -102,9 +122,7 @@ export const VoiceAgent = () => {
               }}
             />
             
-            {/* Floating animation container */}
             <div className="animate-[float_6s_ease-in-out_infinite]">
-              {/* Main orb container */}
               <div 
                 className="relative w-32 h-32"
                 style={{
@@ -112,20 +130,12 @@ export const VoiceAgent = () => {
                   transition: 'transform 0.1s ease-out'
                 }}
               >
-                {/* Glass effect background */}
                 <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-400/30 to-purple-600/30 backdrop-blur-sm" />
-                
-                {/* Inner gradient layers */}
                 <div className="absolute inset-2 rounded-full bg-gradient-to-br from-blue-500/40 to-purple-700/40" />
                 <div className="absolute inset-4 rounded-full bg-gradient-to-br from-blue-400/50 to-purple-600/50" />
-                
-                {/* Core of the orb */}
                 <div className="absolute inset-6 rounded-full bg-gradient-to-br from-blue-300/60 to-purple-500/60 flex items-center justify-center">
-                  {/* Animated rings */}
                   <div className="absolute inset-0 rounded-full border-2 border-white/20 animate-[spin_4s_linear_infinite]" />
                   <div className="absolute inset-2 rounded-full border border-white/10 animate-[spin_3s_linear_infinite]" />
-                  
-                  {/* Microphone icon */}
                   <Mic className="h-8 w-8 text-white/80" />
                 </div>
               </div>
@@ -133,7 +143,6 @@ export const VoiceAgent = () => {
           </div>
         ) : (
           <div className="space-y-8">
-            {/* Non-recording state orb */}
             <div className="relative w-32 h-32 cursor-pointer group" onClick={startCall}>
               <div className="absolute inset-0 rounded-full blur-md bg-blue-400/10 group-hover:bg-blue-400/20 transition-colors" />
               <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-400/20 to-purple-600/20 group-hover:from-blue-400/30 group-hover:to-purple-600/30 transition-colors" />
