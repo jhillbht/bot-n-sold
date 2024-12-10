@@ -20,6 +20,11 @@ const supabaseAdmin = createClient(
 )
 
 serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders })
+  }
+
   const upgrade = req.headers.get('upgrade') || ''
   
   if (upgrade.toLowerCase() != 'websocket') {
@@ -29,7 +34,7 @@ serve(async (req) => {
   const { socket, response } = Deno.upgradeWebSocket(req)
 
   socket.onopen = () => {
-    console.log('Client connected')
+    console.log('Client connected to realtime-chat')
     const vapiWS = new WebSocket('wss://api.vapi.ai/ws', [
       `vapi-api-key.${VAPI_API_KEY}`,
     ])
@@ -56,18 +61,40 @@ serve(async (req) => {
       }))
 
       socket.onmessage = (e) => {
+        console.log('Received message from client:', e.data)
         if (vapiWS.readyState === 1) {
           vapiWS.send(e.data)
+        } else {
+          socket.send(
+            JSON.stringify({
+              type: 'error',
+              msg: 'Vapi connection not ready',
+            })
+          )
         }
       }
     }
 
     vapiWS.onmessage = (e) => {
+      console.log('Received message from Vapi:', e.data)
       socket.send(e.data)
     }
 
-    vapiWS.onerror = (e) => console.error('Vapi WebSocket error:', e)
-    vapiWS.onclose = () => console.log('Vapi WebSocket closed')
+    vapiWS.onerror = (e) => {
+      console.error('Vapi WebSocket error:', e)
+      socket.send(JSON.stringify({
+        type: 'error',
+        msg: 'Vapi connection error',
+      }))
+    }
+    
+    vapiWS.onclose = () => {
+      console.log('Vapi WebSocket closed')
+      socket.send(JSON.stringify({
+        type: 'error',
+        msg: 'Vapi connection closed',
+      }))
+    }
   }
 
   socket.onerror = (e) => console.error('Client WebSocket error:', e)
