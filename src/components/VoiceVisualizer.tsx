@@ -7,9 +7,15 @@ interface VoiceVisualizerProps {
 
 export const VoiceVisualizer = ({ soundLevel }: VoiceVisualizerProps) => {
   const [orbScale, setOrbScale] = useState(1);
+  const VOICE_THRESHOLD = 0.15; // Only respond to sound above this level
 
   useEffect(() => {
-    setOrbScale(1 + (soundLevel * 0.2));
+    // Only scale the orb if the sound is above the threshold
+    if (soundLevel > VOICE_THRESHOLD) {
+      setOrbScale(1 + (soundLevel * 0.2));
+    } else {
+      setOrbScale(1); // Reset to default size when below threshold
+    }
   }, [soundLevel]);
 
   return (
