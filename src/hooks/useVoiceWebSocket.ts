@@ -101,5 +101,5 @@ export const useVoiceWebSocket = (onMessage: (data: any) => void) => {
     };
   }, [onMessage, toast]);
 
-  return { wsRef };
+  return wsRef;
 };
