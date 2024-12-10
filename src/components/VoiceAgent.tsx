@@ -2,10 +2,12 @@ import { useState, useEffect, useRef } from "react";
 import { useToast } from "./ui/use-toast";
 import { VoiceVisualizer } from "./VoiceVisualizer";
 import { VoiceHeader } from "./VoiceHeader";
+import { ValuationSlider } from "./ValuationSlider";
 import { AudioQueue, encodeAudioData } from "@/utils/audioUtils";
 
 export const VoiceAgent = () => {
   const [soundLevel, setSoundLevel] = useState(0);
+  const [showValuationSlider, setShowValuationSlider] = useState(false);
   const { toast } = useToast();
   const wsRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -58,6 +60,12 @@ export const VoiceAgent = () => {
           const data = JSON.parse(event.data);
           console.log('Received message:', data);
 
+          // Check for business valuation related messages
+          if (data.type === 'response.text' && 
+              data.text.toLowerCase().includes('valuation')) {
+            setShowValuationSlider(true);
+          }
+
           if (data.type === 'response.audio.delta') {
             const binaryString = atob(data.delta);
             const bytes = new Uint8Array(binaryString.length);
@@ -107,12 +115,25 @@ export const VoiceAgent = () => {
     };
   }, []);
 
+  const handleValuationChange = (value: number[]) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: 'input_text',
+        text: `My business revenue is ${value[0]} dollars per year.`
+      }));
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-gradient-to-b from-gray-900 to-gray-800 text-white p-4">
       <VoiceHeader />
       <div className="flex flex-col items-center justify-center h-[calc(100vh-8rem)]">
         <VoiceVisualizer soundLevel={soundLevel} />
       </div>
+      <ValuationSlider 
+        isVisible={showValuationSlider} 
+        onValueChange={handleValuationChange}
+      />
     </div>
   );
 };
