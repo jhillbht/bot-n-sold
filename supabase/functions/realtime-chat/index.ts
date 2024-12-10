@@ -20,17 +20,22 @@ const supabaseAdmin = createClient(
 )
 
 serve(async (req) => {
+  console.log('Received request:', req.method, req.url);
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('Handling CORS preflight request');
     return new Response(null, { headers: corsHeaders })
   }
 
   const upgrade = req.headers.get('upgrade') || ''
   
   if (upgrade.toLowerCase() != 'websocket') {
+    console.error('Request is not trying to upgrade to websocket');
     return new Response('Expected websocket', { status: 400 })
   }
 
+  console.log('Upgrading connection to WebSocket');
   const { socket, response } = Deno.upgradeWebSocket(req)
 
   socket.onopen = () => {
@@ -43,7 +48,7 @@ serve(async (req) => {
       console.log('Connected to Vapi')
       
       // Send initial configuration
-      vapiWS.send(JSON.stringify({
+      const config = {
         type: "session.update",
         session: {
           assistant_id: "business-advisor",
@@ -58,13 +63,16 @@ serve(async (req) => {
             channels: 1
           }
         }
-      }))
+      };
+      console.log('Sending Vapi configuration:', config);
+      vapiWS.send(JSON.stringify(config));
 
       socket.onmessage = (e) => {
         console.log('Received message from client:', e.data)
         if (vapiWS.readyState === 1) {
           vapiWS.send(e.data)
         } else {
+          console.error('Vapi connection not ready');
           socket.send(
             JSON.stringify({
               type: 'error',
