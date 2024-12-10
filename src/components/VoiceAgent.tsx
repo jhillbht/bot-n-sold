@@ -1,114 +1,118 @@
 import { useState, useEffect, useRef } from "react";
-import { Mic } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { useVoiceWebSocket } from "@/hooks/useVoiceWebSocket";
+import { useToast } from "./ui/use-toast";
+import { VoiceVisualizer } from "./VoiceVisualizer";
+import { VoiceHeader } from "./VoiceHeader";
+import { AudioQueue, encodeAudioData } from "@/utils/audioUtils";
 
 export const VoiceAgent = () => {
-  const [isRecording, setIsRecording] = useState(false);
   const [soundLevel, setSoundLevel] = useState(0);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const { toast } = useToast();
-  const { connect, disconnect, sendAudio } = useVoiceWebSocket();
+  const wsRef = useRef<WebSocket | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioQueueRef = useRef<AudioQueue | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
 
   useEffect(() => {
-    if (isRecording) {
-      let audioContext: AudioContext;
-      let analyser: AnalyserNode;
-      let dataArray: Uint8Array;
-      let animationFrame: number;
+    const setupAudio = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            sampleRate: 24000,
+            channelCount: 1,
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
+        });
 
-      const initAudio = async () => {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          
-          audioContext = new AudioContext();
-          analyser = audioContext.createAnalyser();
-          const source = audioContext.createMediaStreamSource(stream);
-          source.connect(analyser);
-          analyser.fftSize = 32;
-          dataArray = new Uint8Array(analyser.frequencyBinCount);
+        audioContextRef.current = new AudioContext({ sampleRate: 24000 });
+        audioQueueRef.current = new AudioQueue(audioContextRef.current);
 
-          mediaRecorderRef.current = new MediaRecorder(stream, {
-            mimeType: 'audio/webm'
-          });
+        const audioContext = new AudioContext();
+        const analyser = audioContext.createAnalyser();
+        const source = audioContext.createMediaStreamSource(stream);
+        source.connect(analyser);
+        analyser.fftSize = 32;
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-          mediaRecorderRef.current.ondataavailable = (event) => {
-            if (event.data.size > 0) {
-              sendAudio(event.data);
-            }
-          };
+        const updateSoundLevel = () => {
+          analyser.getByteFrequencyData(dataArray);
+          const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+          setSoundLevel(average / 128);
+          requestAnimationFrame(updateSoundLevel);
+        };
+        updateSoundLevel();
 
-          mediaRecorderRef.current.start(100);
-
-          const updateSoundLevel = () => {
-            analyser.getByteFrequencyData(dataArray);
-            const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
-            setSoundLevel(average / 128);
-            animationFrame = requestAnimationFrame(updateSoundLevel);
-          };
-
-          updateSoundLevel();
-        } catch (error) {
-          console.error('Error accessing microphone:', error);
-          setIsRecording(false);
+        // Setup WebSocket connection to Vapi
+        wsRef.current = new WebSocket(`wss://urdvklczigznduyzmgrf.functions.supabase.co/realtime-chat`);
+        
+        wsRef.current.onopen = () => {
+          console.log('WebSocket connected');
           toast({
-            title: "Microphone Error",
-            description: "Could not access your microphone. Please check permissions.",
-            variant: "destructive",
+            title: "Welcome to Bot & Sold",
+            description: "I'm your AI business advisor. How can I help you today? For example, I can assist with business valuations or guide you through selling your business.",
           });
-        }
-      };
+        };
 
-      connect();
-      initAudio();
+        wsRef.current.onmessage = async (event) => {
+          const data = JSON.parse(event.data);
+          console.log('Received message:', data);
 
-      return () => {
-        if (animationFrame) cancelAnimationFrame(animationFrame);
-        if (audioContext) audioContext.close();
-        if (mediaRecorderRef.current) {
-          mediaRecorderRef.current.stop();
-        }
-        disconnect();
-      };
-    }
-  }, [isRecording]);
+          if (data.type === 'response.audio.delta') {
+            const binaryString = atob(data.delta);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+              bytes[i] = binaryString.charCodeAt(i);
+            }
+            await audioQueueRef.current?.addToQueue(bytes);
+          }
+        };
 
-  const toggleRecording = () => {
-    setIsRecording(!isRecording);
-  };
+        // Setup audio recorder
+        const recorder = new MediaRecorder(stream);
+        recorderRef.current = recorder;
 
-  const orbScale = 1 + (soundLevel * 0.2);
+        recorder.ondataavailable = (event) => {
+          if (event.data.size > 0 && wsRef.current?.readyState === WebSocket.OPEN) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const audioData = new Float32Array(reader.result as ArrayBuffer);
+              const encodedAudio = encodeAudioData(audioData);
+              wsRef.current?.send(JSON.stringify({
+                type: 'input_audio_buffer.append',
+                audio: encodedAudio
+              }));
+            };
+            reader.readAsArrayBuffer(event.data);
+          }
+        };
+
+        recorder.start(100); // Collect data every 100ms
+      } catch (error) {
+        console.error('Error setting up audio:', error);
+        toast({
+          title: "Error",
+          description: "Could not access microphone. Please check your permissions.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    setupAudio();
+
+    return () => {
+      wsRef.current?.close();
+      recorderRef.current?.stop();
+      audioContextRef.current?.close();
+    };
+  }, []);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-white">
-      <button
-        onClick={toggleRecording}
-        className="relative group"
-        aria-label="Toggle voice recording"
-      >
-        <div 
-          className={`absolute inset-0 rounded-full blur-xl transition-colors duration-300
-            ${isRecording ? 'bg-blue-400/20' : 'bg-gray-200/50 group-hover:bg-gray-300/50'}`}
-          style={{
-            transform: isRecording ? `scale(${orbScale + 0.3})` : 'scale(1)',
-            transition: 'transform 0.1s ease-out'
-          }}
-        />
-        
-        <div 
-          className={`relative w-24 h-24 rounded-full transition-transform duration-300
-            ${isRecording ? 'scale-110' : 'group-hover:scale-105'}`}
-          style={{
-            transform: isRecording ? `scale(${orbScale})` : undefined,
-            transition: 'transform 0.1s ease-out'
-          }}
-        >
-          <div className={`absolute inset-0 rounded-full ${isRecording ? 'bg-blue-500/20' : 'bg-gray-100 group-hover:bg-gray-200'} transition-colors duration-300`} />
-          <div className="absolute inset-0 rounded-full flex items-center justify-center">
-            <Mic className={`h-8 w-8 ${isRecording ? 'text-blue-500' : 'text-gray-500 group-hover:text-gray-600'} transition-colors duration-300`} />
-          </div>
-        </div>
-      </button>
+    <div className="fixed inset-0 bg-gradient-to-b from-gray-900 to-gray-800 text-white p-4">
+      <VoiceHeader />
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-8rem)]">
+        <VoiceVisualizer soundLevel={soundLevel} />
+      </div>
     </div>
   );
 };
