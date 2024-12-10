@@ -6,12 +6,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
+const VAPI_API_KEY = Deno.env.get('VAPI_API_KEY')
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
-if (!OPENAI_API_KEY) {
-  console.error('Missing OPENAI_API_KEY')
+if (!VAPI_API_KEY) {
+  console.error('Missing VAPI_API_KEY')
 }
 
 const supabaseAdmin = createClient(
@@ -30,49 +30,44 @@ serve(async (req) => {
 
   socket.onopen = () => {
     console.log('Client connected')
-    const openaiWS = new WebSocket('wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01', [
-      'realtime',
-      `openai-insecure-api-key.${OPENAI_API_KEY}`,
-      'openai-beta.realtime-v1',
+    const vapiWS = new WebSocket('wss://api.vapi.ai/ws', [
+      `vapi-api-key.${VAPI_API_KEY}`,
     ])
 
-    openaiWS.onopen = () => {
-      console.log('Connected to OpenAI')
+    vapiWS.onopen = () => {
+      console.log('Connected to Vapi')
       
-      // Send initial session configuration
-      openaiWS.send(JSON.stringify({
+      // Send initial configuration
+      vapiWS.send(JSON.stringify({
         type: "session.update",
         session: {
-          modalities: ["text", "audio"],
-          instructions: "You are a business advisor AI assistant. Help users with business valuations, selling their business, and other business-related queries. Your responses should be professional and focused on business topics.",
-          voice: "alloy",
+          assistant_id: "business-advisor",
           input_audio_format: "pcm16",
           output_audio_format: "pcm16",
-          input_audio_transcription: {
-            model: "whisper-1"
+          input_audio_config: {
+            sample_rate: 24000,
+            channels: 1
           },
-          turn_detection: {
-            type: "server_vad",
-            threshold: 0.5,
-            prefix_padding_ms: 300,
-            silence_duration_ms: 1000
+          output_audio_config: {
+            sample_rate: 24000,
+            channels: 1
           }
         }
       }))
 
       socket.onmessage = (e) => {
-        if (openaiWS.readyState === 1) {
-          openaiWS.send(e.data)
+        if (vapiWS.readyState === 1) {
+          vapiWS.send(e.data)
         }
       }
     }
 
-    openaiWS.onmessage = (e) => {
+    vapiWS.onmessage = (e) => {
       socket.send(e.data)
     }
 
-    openaiWS.onerror = (e) => console.error('OpenAI WebSocket error:', e)
-    openaiWS.onclose = () => console.log('OpenAI WebSocket closed')
+    vapiWS.onerror = (e) => console.error('Vapi WebSocket error:', e)
+    vapiWS.onclose = () => console.log('Vapi WebSocket closed')
   }
 
   socket.onerror = (e) => console.error('Client WebSocket error:', e)
