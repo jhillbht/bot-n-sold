@@ -84,10 +84,8 @@ export const useVoiceAudio = (wsRef: React.RefObject<WebSocket>) => {
       }
     };
 
-    // Call setupAudio immediately
     setupAudio();
 
-    // Cleanup function
     return () => {
       console.log('Cleaning up audio resources...');
       if (streamRef.current) {
