@@ -1,5 +1,5 @@
-import { useRef, useEffect } from 'react';
-import { useToast } from "@/hooks/use-toast";
+import { useEffect, useRef } from "react";
+import { useToast } from "@/components/ui/use-toast";
 
 export const useVoiceWebSocket = (onMessage: (data: any) => void) => {
   const wsRef = useRef<WebSocket | null>(null);
@@ -12,31 +12,55 @@ export const useVoiceWebSocket = (onMessage: (data: any) => void) => {
   useEffect(() => {
     const initWebSocket = () => {
       console.log('Initializing WebSocket...');
+      
       if (wsRef.current?.readyState === WebSocket.OPEN) {
-        console.log('WebSocket already connected');
         return;
       }
 
       // Reset toast state
       toastShownRef.current = false;
 
-      wsRef.current = new WebSocket('wss://urdvklczigznduyzmgrf.functions.supabase.co/realtime-chat');
+      // Use the demo WebSocket URL with provided credentials
+      const wsUrl = new URL('wss://api.vapi.ai/ws');
+      wsUrl.searchParams.append('demo', 'true');
+      wsUrl.searchParams.append('shareKey', '8b172799-931a-4e4e-be97-b2291b0b6434');
+      wsUrl.searchParams.append('assistantId', '03c8458b-0abb-4d0a-98f6-456f99cb5000');
+      
+      wsRef.current = new WebSocket(wsUrl.toString());
       
       wsRef.current.onopen = () => {
-        console.log('WebSocket connected');
+        console.log('WebSocket connection established');
         reconnectAttemptsRef.current = 0;
-        // Start the conversation
-        wsRef.current?.send(JSON.stringify({
-          type: 'input_text',
-          text: "Hello! I'm here to help you with your business valuation. How can I assist you today?"
-        }));
-      };
 
+        // Send initial configuration
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({
+            type: "session.update",
+            session: {
+              input_audio_format: "pcm16",
+              output_audio_format: "pcm16",
+              input_audio_config: {
+                sample_rate: 24000,
+                channels: 1
+              },
+              output_audio_config: {
+                sample_rate: 24000,
+                channels: 1
+              }
+            }
+          }));
+        }
+      };
+      
       wsRef.current.onmessage = (event) => {
-        console.log('Received message:', event.data);
-        onMessage(JSON.parse(event.data));
+        try {
+          const data = JSON.parse(event.data);
+          onMessage(data);
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
       };
-
+      
       wsRef.current.onerror = (error) => {
         console.error('WebSocket error:', error);
         if (!toastShownRef.current) {
@@ -45,11 +69,10 @@ export const useVoiceWebSocket = (onMessage: (data: any) => void) => {
             title: "Connection Error",
             description: "Lost connection to the voice service. Please refresh the page.",
             variant: "destructive",
-            duration: 5000,
           });
         }
       };
-
+      
       wsRef.current.onclose = () => {
         console.log('WebSocket closed');
         if (reconnectAttemptsRef.current < maxReconnectAttempts) {
@@ -62,7 +85,6 @@ export const useVoiceWebSocket = (onMessage: (data: any) => void) => {
             title: "Connection Failed",
             description: "Unable to establish connection. Please refresh the page to try again.",
             variant: "destructive",
-            duration: 5000,
           });
         }
       };
@@ -79,5 +101,5 @@ export const useVoiceWebSocket = (onMessage: (data: any) => void) => {
     };
   }, [onMessage, toast]);
 
-  return wsRef;
+  return { wsRef };
 };
