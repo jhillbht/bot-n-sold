@@ -37,11 +37,11 @@ serve(async (req) => {
     vapiWS.onopen = () => {
       console.log('Connected to Vapi')
       
-      // Send initial configuration
+      // Send initial configuration with the specified assistant ID
       vapiWS.send(JSON.stringify({
         type: "session.update",
         session: {
-          assistant_id: "business-advisor",
+          assistant_id: "03c8458b-0abb-4d0a-98f6-456f99cb5000",
           input_audio_format: "pcm16",
           output_audio_format: "pcm16",
           input_audio_config: {
