@@ -5,10 +5,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "./ui/use-toast";
 
 export const VoiceAgent = () => {
-  const [isRecording, setIsRecording] = useState(false);
+  const [isRecording, setIsRecording] = useState(true); // Start recording by default
   const [isProcessing, setIsProcessing] = useState(false);
   const [soundLevel, setSoundLevel] = useState(0);
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Start the call automatically when component mounts
+    startCall();
+  }, []);
 
   useEffect(() => {
     if (isRecording) {
@@ -54,23 +59,24 @@ export const VoiceAgent = () => {
     try {
       setIsProcessing(true);
       const { data, error } = await supabase.functions.invoke('start-call', {
-        body: { assistantId: 'real-estate-agent' }
+        body: { assistantId: 'business-advisor' }
       });
 
       if (error) throw error;
       
       setIsRecording(true);
       toast({
-        title: "Call started",
-        description: "You can start speaking now",
+        title: "Welcome to Bot & Sold",
+        description: "I'm your AI business advisor. How can I help you today? For example, I can assist with business valuations or guide you through selling your business.",
       });
     } catch (error) {
       console.error('Error starting call:', error);
       toast({
         title: "Error",
-        description: "Could not start the call. Please try again.",
+        description: "Could not start the conversation. Please try again.",
         variant: "destructive",
       });
+      setIsRecording(false);
     } finally {
       setIsProcessing(false);
     }
@@ -84,73 +90,43 @@ export const VoiceAgent = () => {
         <Button variant="ghost" size="icon" className="text-white">
           <ArrowLeft className="h-6 w-6" />
         </Button>
-        <h1 className="text-lg font-medium">Speaking to AI bot</h1>
+        <h1 className="text-lg font-medium">Business Advisor AI</h1>
         <Button variant="ghost" size="icon" className="text-white">
           <MoreVertical className="h-6 w-6" />
         </Button>
       </div>
 
       <div className="flex flex-col items-center justify-center h-[calc(100vh-8rem)]">
-        {isRecording ? (
-          <div className="relative">
-            {/* Outer glow effect */}
+        <div className="relative">
+          <div 
+            className="absolute inset-0 rounded-full blur-xl bg-blue-400/20"
+            style={{
+              transform: `scale(${orbScale + 0.3})`,
+              transition: 'transform 0.1s ease-out'
+            }}
+          />
+          
+          <div className="animate-[float_6s_ease-in-out_infinite]">
             <div 
-              className="absolute inset-0 rounded-full blur-xl bg-blue-400/20"
+              className="relative w-32 h-32"
               style={{
-                transform: `scale(${orbScale + 0.3})`,
+                transform: `scale(${orbScale})`,
                 transition: 'transform 0.1s ease-out'
               }}
-            />
-            
-            {/* Floating animation container */}
-            <div className="animate-[float_6s_ease-in-out_infinite]">
-              {/* Main orb container */}
-              <div 
-                className="relative w-32 h-32"
-                style={{
-                  transform: `scale(${orbScale})`,
-                  transition: 'transform 0.1s ease-out'
-                }}
-              >
-                {/* Glass effect background */}
-                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-400/30 to-purple-600/30 backdrop-blur-sm" />
-                
-                {/* Inner gradient layers */}
-                <div className="absolute inset-2 rounded-full bg-gradient-to-br from-blue-500/40 to-purple-700/40" />
-                <div className="absolute inset-4 rounded-full bg-gradient-to-br from-blue-400/50 to-purple-600/50" />
-                
-                {/* Core of the orb */}
-                <div className="absolute inset-6 rounded-full bg-gradient-to-br from-blue-300/60 to-purple-500/60 flex items-center justify-center">
-                  {/* Animated rings */}
-                  <div className="absolute inset-0 rounded-full border-2 border-white/20 animate-[spin_4s_linear_infinite]" />
-                  <div className="absolute inset-2 rounded-full border border-white/10 animate-[spin_3s_linear_infinite]" />
-                  
-                  {/* Microphone icon */}
-                  <Mic className="h-8 w-8 text-white/80" />
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-8">
-            {/* Non-recording state orb */}
-            <div className="relative w-32 h-32 cursor-pointer group" onClick={startCall}>
-              <div className="absolute inset-0 rounded-full blur-md bg-blue-400/10 group-hover:bg-blue-400/20 transition-colors" />
-              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-400/20 to-purple-600/20 group-hover:from-blue-400/30 group-hover:to-purple-600/30 transition-colors" />
-              <div className="absolute inset-4 rounded-full bg-gradient-to-br from-blue-500/30 to-purple-700/30 flex items-center justify-center">
-                <Mic className="h-8 w-8 text-white/60 group-hover:text-white/80 transition-colors" />
-              </div>
-            </div>
-            
-            <Button
-              onClick={startCall}
-              disabled={isProcessing}
-              className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-8 py-6 text-lg"
             >
-              {isProcessing ? "Starting..." : "Start Recording"}
-            </Button>
+              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-400/30 to-purple-600/30 backdrop-blur-sm" />
+              <div className="absolute inset-2 rounded-full bg-gradient-to-br from-blue-500/40 to-purple-700/40" />
+              <div className="absolute inset-4 rounded-full bg-gradient-to-br from-blue-400/50 to-purple-600/50" />
+              
+              <div className="absolute inset-6 rounded-full bg-gradient-to-br from-blue-300/60 to-purple-500/60 flex items-center justify-center">
+                <div className="absolute inset-0 rounded-full border-2 border-white/20 animate-[spin_4s_linear_infinite]" />
+                <div className="absolute inset-2 rounded-full border border-white/10 animate-[spin_3s_linear_infinite]" />
+                
+                <Mic className="h-8 w-8 text-white/80" />
+              </div>
+            </div>
           </div>
-        )}
+        </div>
       </div>
 
       {isRecording && (
