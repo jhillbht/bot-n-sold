@@ -4,6 +4,7 @@ import { SocialLogin } from "@/components/SocialLogin";
 import { VoiceAgent } from "@/components/VoiceAgent";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
+import { DollarSign } from "lucide-react";
 
 const Index = () => {
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
@@ -49,8 +50,19 @@ const Index = () => {
         <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800">
           <div className="container mx-auto px-4 py-12">
             <div className="text-center mb-12 animate-fadeIn">
-              <h1 className="text-4xl font-bold mb-4 text-white">Welcome to Business Exchange</h1>
-              <p className="text-lg text-gray-300">Are you looking to buy or sell a business?</p>
+              {/* Logo and Title */}
+              <div className="flex items-center justify-center mb-6">
+                <div className="relative w-16 h-16 mr-4">
+                  <div className="absolute inset-0 bg-gradient-to-br from-green-400 to-green-600 rounded-full shadow-lg animate-float">
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <DollarSign className="w-8 h-8 text-white" />
+                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-tr from-yellow-300/30 to-transparent rounded-full" />
+                  </div>
+                </div>
+                <h1 className="text-4xl font-bold text-white">Bot & Sold</h1>
+              </div>
+              <p className="text-lg text-gray-300">Your AI-powered business matchmaker</p>
             </div>
 
             {!showContent ? (
