@@ -6,11 +6,24 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
-  const VAPI_API_KEY = Deno.env.get('VAPI_API_KEY')
+  // Verify authorization
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    return new Response(
+      JSON.stringify({ error: 'Missing authorization header' }), 
+      { 
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
+  }
+
+  const VAPI_API_KEY = Deno.env.get('VAPI_API_KEY');
   if (!VAPI_API_KEY) {
     return new Response(
       JSON.stringify({ error: 'VAPI API key not configured' }), 
@@ -18,7 +31,7 @@ serve(async (req) => {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
-    )
+    );
   }
 
   return new Response(
@@ -27,5 +40,5 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200 
     }
-  )
+  );
 })

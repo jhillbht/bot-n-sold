@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { useToast } from '@/components/ui/use-toast';
+import { supabase } from "@/integrations/supabase/client";
 
 export const useVapiWebSocket = () => {
   const wsRef = useRef<WebSocket | null>(null);
@@ -20,12 +21,12 @@ export const useVapiWebSocket = () => {
       }
 
       try {
-        // Get the API key from our Edge Function
-        const response = await fetch('https://urdvklczigznduyzmgrf.functions.supabase.co/get-vapi-key');
-        if (!response.ok) {
+        // Get the API key from our Edge Function with proper authorization
+        const { data: { apiKey }, error } = await supabase.functions.invoke('get-vapi-key');
+        
+        if (error) {
           throw new Error('Failed to get API key');
         }
-        const { apiKey } = await response.json();
 
         if (wsRef.current) {
           wsRef.current.close();
