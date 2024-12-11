@@ -9,9 +9,10 @@ import { useToast } from "@/components/ui/use-toast";
 export const VoiceAgent = () => {
   const wsRef = useVapiWebSocket();
   const { toast } = useToast();
+  const processingRef = useRef(false);
 
   const handleAudioData = (data: Blob) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
+    if (wsRef.current?.readyState === WebSocket.OPEN && !processingRef.current) {
       const reader = new FileReader();
       reader.onloadend = () => {
         const audioData = new Float32Array(reader.result as ArrayBuffer);
@@ -35,12 +36,14 @@ export const VoiceAgent = () => {
         console.log('Received message:', data);
 
         if (data.type === 'response.audio.delta') {
+          processingRef.current = true;
           const binaryString = atob(data.delta);
           const bytes = new Uint8Array(binaryString.length);
           for (let i = 0; i < binaryString.length; i++) {
             bytes[i] = binaryString.charCodeAt(i);
           }
           await audioQueue?.addToQueue(bytes);
+          processingRef.current = false;
         } else if (data.type === 'error') {
           console.error('VAPI error:', data);
           toast({
@@ -48,9 +51,13 @@ export const VoiceAgent = () => {
             description: "There was an error processing your request.",
             variant: "destructive",
           });
+          processingRef.current = false;
+        } else if (data.type === 'recognition.complete') {
+          console.log('Recognition complete:', data);
         }
       } catch (error) {
         console.error('Error processing WebSocket message:', error);
+        processingRef.current = false;
       }
     };
   }
