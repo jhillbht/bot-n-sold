@@ -35,13 +35,11 @@ serve(async (req) => {
     vapiWS.onopen = () => {
       console.log('Connected to VAPI')
       
-      // Send initial configuration
+      // Send initial configuration for the widget
       const config = {
         type: "session.update",
         session: {
           assistant_id: "03c8458b-0abb-4d0a-98f6-456f99cb5000",
-          input_audio_format: "pcm16",
-          output_audio_format: "pcm16",
           input_audio_config: {
             sample_rate: 24000,
             channels: 1
