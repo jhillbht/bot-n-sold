@@ -19,17 +19,40 @@ export const useVapiWebSocket = () => {
         return;
       }
 
-      // Close existing connection if any
       if (wsRef.current) {
         wsRef.current.close();
       }
 
-      console.log('Attempting to connect to WebSocket...');
-      wsRef.current = new WebSocket(`wss://urdvklczigznduyzmgrf.functions.supabase.co/realtime-chat`);
+      console.log('Connecting to VAPI WebSocket...');
+      wsRef.current = new WebSocket('wss://api.vapi.ai/ws', [
+        'vapi-protocol.v1',
+        `vapi-api-key.${import.meta.env.VITE_VAPI_API_KEY}`
+      ]);
       
       wsRef.current.onopen = () => {
         console.log('WebSocket connected successfully');
         reconnectAttemptsRef.current = 0;
+        
+        // Send initial configuration
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({
+            type: "session.update",
+            session: {
+              assistant_id: "03c8458b-0abb-4d0a-98f6-456f99cb5000",
+              input_audio_config: {
+                sample_rate: 24000,
+                channels: 1,
+                encoding: "pcm_f32le"
+              },
+              output_audio_config: {
+                sample_rate: 24000,
+                channels: 1,
+                encoding: "pcm_f32le"
+              }
+            }
+          }));
+        }
+
         toast({
           title: "Connected",
           description: "Voice chat is ready. Start speaking to interact.",
@@ -43,8 +66,6 @@ export const useVapiWebSocket = () => {
 
       wsRef.current.onclose = () => {
         console.log('WebSocket connection closed');
-        
-        // Attempt to reconnect after a delay that increases with each attempt
         const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 10000);
         reconnectTimeoutRef.current = setTimeout(connectWebSocket, delay);
       };
