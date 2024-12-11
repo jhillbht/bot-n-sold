@@ -1,70 +1,59 @@
 import { useRef, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
-
-const VAPI_API_KEY = "8b172799-931a-4e4e-be97-b2291b0b6434";
+import { VapiConnectionManager } from '@/utils/vapiConnection';
 
 export const useVapiWebSocket = () => {
+  const wsManagerRef = useRef<VapiConnectionManager | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    const connectWebSocket = () => {
+    const handleMessage = (event: MessageEvent) => {
       try {
-        wsRef.current = new WebSocket('wss://api.vapi.ai/ws', [
-          'vapi-protocol.v1',
-          `vapi-api-key.${VAPI_API_KEY}`
-        ]);
-        
-        wsRef.current.onopen = () => {
-          if (wsRef.current?.readyState === WebSocket.OPEN) {
-            wsRef.current.send(JSON.stringify({
-              type: "session.update",
-              session: {
-                assistant_id: "03c8458b-0abb-4d0a-98f6-456f99cb5000",
-                input_audio_config: {
-                  sample_rate: 24000,
-                  channels: 1,
-                  encoding: "pcm_f32le"
-                },
-                output_audio_config: {
-                  sample_rate: 24000,
-                  channels: 1,
-                  encoding: "pcm_f32le"
-                }
-              }
-            }));
-          }
-        };
-
-        wsRef.current.onerror = (error) => {
-          console.error('WebSocket error:', error);
-          toast({
-            title: "Error",
-            description: "Connection error. Please try again.",
-            variant: "destructive",
-          });
-        };
-
-        wsRef.current.onclose = () => {
-          console.log('WebSocket connection closed');
-          setTimeout(connectWebSocket, 1000);
-        };
-
+        const data = JSON.parse(event.data);
+        console.log('Received message:', data);
       } catch (error) {
-        console.error('Failed to connect:', error);
+        console.error('Error processing message:', error);
+      }
+    };
+
+    const handleError = (error: Event) => {
+      console.error('WebSocket error:', error);
+      toast({
+        title: "Connection Error",
+        description: "Attempting alternative connection methods...",
+        variant: "destructive",
+      });
+    };
+
+    const connectToVapi = async () => {
+      try {
+        wsManagerRef.current = new VapiConnectionManager(
+          () => console.log('Connected to VAPI'),
+          handleMessage,
+          handleError,
+          () => console.log('Connection closed')
+        );
+
+        const ws = await wsManagerRef.current.connect();
+        if (ws) {
+          wsRef.current = ws;
+        }
+      } catch (error) {
+        console.error('Failed to establish connection:', error);
         toast({
-          title: "Error",
-          description: "Could not connect to voice service.",
+          title: "Connection Failed",
+          description: "Could not establish connection to voice service.",
           variant: "destructive",
         });
       }
     };
 
-    connectWebSocket();
+    connectToVapi();
 
     return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
+      if (wsManagerRef.current) {
+        wsManagerRef.current.close();
       }
     };
   }, [toast]);
