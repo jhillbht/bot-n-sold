@@ -29,51 +29,55 @@ export const VoiceAgent = () => {
   const { soundLevel, audioQueue } = useAudioSetup(handleAudioData);
 
   useEffect(() => {
-    // Set up WebSocket message handler
-    if (wsRef.current) {
-      wsRef.current.onmessage = async (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log('Received message:', data);
+    if (!wsRef.current) return;
 
-          if (data.type === 'response.audio.delta') {
-            processingRef.current = true;
-            const binaryString = atob(data.delta);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-              bytes[i] = binaryString.charCodeAt(i);
-            }
-            await audioQueue?.addToQueue(bytes);
-            processingRef.current = false;
-          } else if (data.type === 'error') {
-            console.error('VAPI error:', data);
-            toast({
-              title: "Error",
-              description: "There was an error processing your request.",
-              variant: "destructive",
-            });
-            processingRef.current = false;
-          } else if (data.type === 'recognition.complete') {
-            console.log('Recognition complete:', data);
+    const handleMessage = async (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('Received message:', data);
+
+        if (data.type === 'response.audio.delta') {
+          processingRef.current = true;
+          const binaryString = atob(data.delta);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
           }
-        } catch (error) {
-          console.error('Error processing WebSocket message:', error);
+          await audioQueue?.addToQueue(bytes);
+          processingRef.current = false;
+        } else if (data.type === 'error') {
+          console.error('VAPI error:', data);
+          toast({
+            title: "Error",
+            description: "There was an error processing your request.",
+            variant: "destructive",
+          });
           processingRef.current = false;
         }
-      };
+      } catch (error) {
+        console.error('Error processing WebSocket message:', error);
+        processingRef.current = false;
+      }
+    };
 
-      // Send initial message to trigger assistant introduction
-      const timer = setTimeout(() => {
-        if (wsRef.current?.readyState === WebSocket.OPEN) {
-          wsRef.current.send(JSON.stringify({
-            type: 'text',
-            text: "Hello! I'm your AI business assistant. How can I help you today?"
-          }));
-        }
-      }, 1000);
+    wsRef.current.onmessage = handleMessage;
 
-      return () => clearTimeout(timer);
-    }
+    // Send initial message
+    const timer = setTimeout(() => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+          type: 'text',
+          text: "Hello! I'm your AI business assistant. How can I help you today?"
+        }));
+      }
+    }, 1000);
+
+    return () => {
+      clearTimeout(timer);
+      if (wsRef.current) {
+        wsRef.current.onmessage = null;
+      }
+    };
   }, [wsRef.current, toast, audioQueue]);
 
   return (
