@@ -26,9 +26,10 @@ serve(async (req) => {
   socket.onopen = () => {
     console.log('Client connected to Edge Function')
     
-    // Connect to VAPI WebSocket
+    // Connect to VAPI WebSocket with proper configuration
     const vapiWS = new WebSocket('wss://api.vapi.ai/ws', [
       `vapi-api-key.${VAPI_API_KEY}`,
+      'vapi-protocol.v1'
     ])
 
     vapiWS.onopen = () => {
@@ -61,6 +62,7 @@ serve(async (req) => {
 
       // Forward messages from client to VAPI
       socket.onmessage = (e) => {
+        console.log('Received message from client:', e.data)
         if (vapiWS.readyState === WebSocket.OPEN) {
           vapiWS.send(e.data)
         }
@@ -69,6 +71,7 @@ serve(async (req) => {
 
     // Forward messages from VAPI to client
     vapiWS.onmessage = (e) => {
+      console.log('Received message from VAPI:', e.data)
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(e.data)
       }
