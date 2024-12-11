@@ -42,17 +42,13 @@ serve(async (req) => {
           assistant_id: "03c8458b-0abb-4d0a-98f6-456f99cb5000",
           input_audio_config: {
             sample_rate: 24000,
-            channels: 1
+            channels: 1,
+            encoding: "pcm_f32le"
           },
           output_audio_config: {
             sample_rate: 24000,
-            channels: 1
-          },
-          turn_detection: {
-            type: "server_vad",
-            threshold: 0.5,
-            prefix_padding_ms: 300,
-            silence_duration_ms: 1000
+            channels: 1,
+            encoding: "pcm_f32le"
           }
         }
       }
