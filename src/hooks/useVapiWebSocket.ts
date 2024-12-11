@@ -6,26 +6,10 @@ const VAPI_API_KEY = "vapi-ai-03c8458b0abb4d0a98f6456f99cb5000";
 export const useVapiWebSocket = () => {
   const wsRef = useRef<WebSocket | null>(null);
   const { toast } = useToast();
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
-  const reconnectAttemptsRef = useRef(0);
-  const MAX_RECONNECT_ATTEMPTS = 5;
 
   useEffect(() => {
-    const connectWebSocket = async () => {
-      if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-        toast({
-          title: "Connection Error",
-          description: "Failed to connect to voice chat. Please refresh the page and try again.",
-          variant: "destructive",
-        });
-        return;
-      }
-
+    const connectWebSocket = () => {
       try {
-        if (wsRef.current) {
-          wsRef.current.close();
-        }
-
         console.log('Connecting to VAPI WebSocket...');
         wsRef.current = new WebSocket('wss://api.vapi.ai/ws', [
           'vapi-protocol.v1',
@@ -34,7 +18,6 @@ export const useVapiWebSocket = () => {
         
         wsRef.current.onopen = () => {
           console.log('WebSocket connected successfully');
-          reconnectAttemptsRef.current = 0;
           
           // Send initial configuration
           if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -64,28 +47,31 @@ export const useVapiWebSocket = () => {
 
         wsRef.current.onerror = (error) => {
           console.error('WebSocket error:', error);
-          reconnectAttemptsRef.current++;
+          toast({
+            title: "Error",
+            description: "Connection error. Please try again.",
+            variant: "destructive",
+          });
         };
 
         wsRef.current.onclose = () => {
           console.log('WebSocket connection closed');
-          const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 10000);
-          reconnectTimeoutRef.current = setTimeout(connectWebSocket, delay);
+          setTimeout(connectWebSocket, 1000); // Reconnect after 1 second
         };
+
       } catch (error) {
         console.error('Failed to connect:', error);
-        reconnectAttemptsRef.current++;
-        const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 10000);
-        reconnectTimeoutRef.current = setTimeout(connectWebSocket, delay);
+        toast({
+          title: "Error",
+          description: "Could not connect to voice service.",
+          variant: "destructive",
+        });
       }
     };
 
     connectWebSocket();
 
     return () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
       if (wsRef.current) {
         wsRef.current.close();
       }
