@@ -1,23 +1,19 @@
 import { useRef, useEffect } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 
-interface WebSocketMessage {
-  type: string;
-  [key: string]: any;
-}
-
 export const useVapiWebSocket = () => {
   const wsRef = useRef<WebSocket | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
+    // Create WebSocket connection
     wsRef.current = new WebSocket(`wss://urdvklczigznduyzmgrf.functions.supabase.co/realtime-chat`);
     
     wsRef.current.onopen = () => {
       console.log('WebSocket connected');
       toast({
-        title: "Welcome to Bot & Sold",
-        description: "Hello, This is Chris from Bot & Sold. How can I help you today?",
+        title: "Connected",
+        description: "Voice chat is ready. Start speaking to interact.",
       });
 
       // Send initial configuration
@@ -43,6 +39,19 @@ export const useVapiWebSocket = () => {
           }
         }
       }));
+    };
+
+    wsRef.current.onerror = (error) => {
+      console.error('WebSocket error:', error);
+      toast({
+        title: "Connection Error",
+        description: "Failed to connect to voice chat. Please try again.",
+        variant: "destructive",
+      });
+    };
+
+    wsRef.current.onclose = () => {
+      console.log('WebSocket connection closed');
     };
 
     return () => {
