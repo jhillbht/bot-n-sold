@@ -4,7 +4,7 @@ import { VoiceHeader } from "./VoiceHeader";
 import { encodeAudioData } from "@/utils/audioUtils";
 import { useVapiWebSocket } from "@/hooks/useVapiWebSocket";
 import { useAudioSetup } from "@/hooks/useAudioSetup";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 export const VoiceAgent = () => {
   const wsRef = useVapiWebSocket();
@@ -29,52 +29,52 @@ export const VoiceAgent = () => {
   const { soundLevel, audioQueue } = useAudioSetup(handleAudioData);
 
   useEffect(() => {
-    // Send initial message to trigger assistant introduction
-    const timer = setTimeout(() => {
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({
-          type: 'text',
-          text: "Hello! I'm your AI business assistant. How can I help you today?"
-        }));
-      }
-    }, 1000);
+    // Set up WebSocket message handler
+    if (wsRef.current) {
+      wsRef.current.onmessage = async (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log('Received message:', data);
 
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Set up WebSocket message handler
-  if (wsRef.current) {
-    wsRef.current.onmessage = async (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        console.log('Received message:', data);
-
-        if (data.type === 'response.audio.delta') {
-          processingRef.current = true;
-          const binaryString = atob(data.delta);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
+          if (data.type === 'response.audio.delta') {
+            processingRef.current = true;
+            const binaryString = atob(data.delta);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+              bytes[i] = binaryString.charCodeAt(i);
+            }
+            await audioQueue?.addToQueue(bytes);
+            processingRef.current = false;
+          } else if (data.type === 'error') {
+            console.error('VAPI error:', data);
+            toast({
+              title: "Error",
+              description: "There was an error processing your request.",
+              variant: "destructive",
+            });
+            processingRef.current = false;
+          } else if (data.type === 'recognition.complete') {
+            console.log('Recognition complete:', data);
           }
-          await audioQueue?.addToQueue(bytes);
+        } catch (error) {
+          console.error('Error processing WebSocket message:', error);
           processingRef.current = false;
-        } else if (data.type === 'error') {
-          console.error('VAPI error:', data);
-          toast({
-            title: "Error",
-            description: "There was an error processing your request.",
-            variant: "destructive",
-          });
-          processingRef.current = false;
-        } else if (data.type === 'recognition.complete') {
-          console.log('Recognition complete:', data);
         }
-      } catch (error) {
-        console.error('Error processing WebSocket message:', error);
-        processingRef.current = false;
-      }
-    };
-  }
+      };
+
+      // Send initial message to trigger assistant introduction
+      const timer = setTimeout(() => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({
+            type: 'text',
+            text: "Hello! I'm your AI business assistant. How can I help you today?"
+          }));
+        }
+      }, 1000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [wsRef.current, toast, audioQueue]);
 
   return (
     <div className="fixed inset-0 bg-gradient-to-b from-gray-900 to-gray-800 text-white p-4">
