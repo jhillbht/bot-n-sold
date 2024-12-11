@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { VoiceVisualizer } from "./VoiceVisualizer";
 import { VoiceHeader } from "./VoiceHeader";
 import { encodeAudioData } from "@/utils/audioUtils";
@@ -27,6 +27,20 @@ export const VoiceAgent = () => {
   };
 
   const { soundLevel, audioQueue } = useAudioSetup(handleAudioData);
+
+  useEffect(() => {
+    // Send initial message to trigger assistant introduction
+    const timer = setTimeout(() => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+          type: 'text',
+          text: "Hello! I'm your AI business assistant. How can I help you today?"
+        }));
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   // Set up WebSocket message handler
   if (wsRef.current) {

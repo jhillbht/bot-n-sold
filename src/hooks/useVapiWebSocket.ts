@@ -1,6 +1,7 @@
 import { useRef, useEffect } from 'react';
 import { useToast } from '@/components/ui/use-toast';
-import { supabase } from "@/integrations/supabase/client";
+
+const VAPI_API_KEY = "vapi-ai-03c8458b0abb4d0a98f6456f99cb5000";
 
 export const useVapiWebSocket = () => {
   const wsRef = useRef<WebSocket | null>(null);
@@ -21,13 +22,6 @@ export const useVapiWebSocket = () => {
       }
 
       try {
-        // Get the API key from our Edge Function with proper authorization
-        const { data: { apiKey }, error } = await supabase.functions.invoke('get-vapi-key');
-        
-        if (error) {
-          throw new Error('Failed to get API key');
-        }
-
         if (wsRef.current) {
           wsRef.current.close();
         }
@@ -35,7 +29,7 @@ export const useVapiWebSocket = () => {
         console.log('Connecting to VAPI WebSocket...');
         wsRef.current = new WebSocket('wss://api.vapi.ai/ws', [
           'vapi-protocol.v1',
-          `vapi-api-key.${apiKey}`
+          `vapi-api-key.${VAPI_API_KEY}`
         ]);
         
         wsRef.current.onopen = () => {
